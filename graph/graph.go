@@ -7,7 +7,43 @@ import(
     "fmt"
     "os"
 )
+//Types for shortest path map
+type ShortestPath struct {
+    SptSet map[string]int
+    Nodes []ShortestPathNode
+}
 
+type ShortestPathNode struct {
+    Id string
+    Cost int
+    Parent *ShortestPathNode
+}
+
+func (s *ShortestPath) Initialize(graph map[string]*GraphNode) {
+    s.SptSet = make(map[string]int)
+    for node,_ := range graph {
+        if node != "start" && node != "end" {
+
+            s.Nodes = append(s.Nodes, ShortestPathNode{Id: node, Cost: -1, Parent: nil})
+        }
+    }
+}
+
+func (s *ShortestPath) PrintSpt() {
+    fmt.Println("Shortest Path Table")
+    fmt.Println("ID\tCost\tParent")
+    for _,node := range s.Nodes {
+        var parent string
+        if node.Parent == nil {
+            parent = "nil"
+        } else {
+            parent = node.Parent.Id
+        }
+        fmt.Printf("%v\t%v\t%v\n", node.Id, node.Cost, parent)
+    }
+}
+
+//Types for making the graph
 type GraphNode struct {
     Id string
     Connections []GraphEdge
@@ -24,11 +60,8 @@ func check(e error){
     }
 }
 
-func addOneWayEdge (graph map[string]*GraphNode, x string, y string, w int){
-    node := graph[x]
-    nc := graph[y]
-    ge := GraphEdge{nc,w}
-    node.Connections = append(node.Connections, ge)    
+func addOneWayEdge (graph map[string]*GraphNode, x string, y string, w int){  
+    graph[x].Connections = append(graph[x].Connections, GraphEdge{graph[y],w})
 }
 
 func addEdge(graph map[string]*GraphNode, x string, y string, w int){
@@ -45,8 +78,8 @@ func addNode(graph map[string]*GraphNode, id string){
     graph[id] = &GraphNode{Id: id}
 }
 
-func ParseFile(graph map[string]*GraphNode){
-    f, err := os.Open("./data")
+func ParseFile(graph map[string]*GraphNode, fileName string){
+    f, err := os.Open(fileName)
     check(err)
     defer f.Close()
     scanner := bufio.NewScanner(f)
@@ -71,9 +104,11 @@ func ParseFile(graph map[string]*GraphNode){
     }
 }
 
-func dij(graph map[string]*GraphNode){
+func Dij(graph map[string]*GraphNode){
+    sp := new(ShortestPath)
+    sp.Initialize(graph)
+    sp.PrintSpt()
 }
-
 
 func PrintNodeConn(graph map[string]*GraphNode){
     for node,data := range graph {
