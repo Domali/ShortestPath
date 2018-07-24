@@ -7,10 +7,10 @@ import(
     "fmt"
     "os"
 )
-//Types for shortest path map
+//Types for dijkstra's shortest path algo
 type ShortestPath struct {
     SptSet map[string]int
-    Nodes []ShortestPathNode
+    Nodes map[string]*ShortestPathNode
 }
 
 type ShortestPathNode struct {
@@ -21,10 +21,10 @@ type ShortestPathNode struct {
 
 func (s *ShortestPath) Initialize(graph map[string]*GraphNode) {
     s.SptSet = make(map[string]int)
+    s.Nodes = make(map[string]*ShortestPathNode)
     for node,_ := range graph {
         if node != "start" && node != "end" {
-
-            s.Nodes = append(s.Nodes, ShortestPathNode{Id: node, Cost: -1, Parent: nil})
+            s.Nodes[node] = &ShortestPathNode{Id: node, Cost: -1, Parent: nil}
         }
     }
 }
@@ -41,6 +41,55 @@ func (s *ShortestPath) PrintSpt() {
         }
         fmt.Printf("%v\t%v\t%v\n", node.Id, node.Cost, parent)
     }
+}
+
+func (s *ShortestPath) UpdateNodeSpt(graph map[string]*GraphNode, curNode string) {
+    s.SptSet[curNode] = -1
+    curWeight := s.Nodes[curNode].Cost
+    if curWeight == -1 {
+        curWeight = 0
+    }
+    for _,edge := range graph[curNode].Connections {
+        edgeNode := edge.GraphNode
+        if _,ok := s.SptSet[edgeNode.Id]; !ok {
+            pathCost := curWeight + edge.Weight
+            if cost := s.Nodes[edgeNode.Id].Cost; cost == -1  ||  cost > pathCost {
+                s.Nodes[edgeNode.Id].Cost = pathCost
+                s.Nodes[edgeNode.Id].Parent = s.Nodes[curNode]
+            }
+        }
+    }
+}
+
+func (s *ShortestPath) GetNextNode() string{
+    var nextNode string
+    lowestCost := -1
+    for _,node := range s.Nodes {
+        if _,ok := s.SptSet[node.Id]; !ok {
+            if (lowestCost == -1  || node.Cost < lowestCost)  && node.Cost != -1 {
+                lowestCost = node.Cost
+                nextNode = node.Id
+            }
+        }
+    }
+    return nextNode
+} 
+
+func (s *ShortestPath) GenerateSpt(graph map[string]*GraphNode) {
+    nextNode := graph["start"].Id
+    for {
+        s.UpdateNodeSpt(graph,nextNode)
+        if nextNode = s.GetNextNode(); nextNode == "" {
+            break;
+        }
+    }
+}
+
+func Dij(graph map[string]*GraphNode){
+    sp := new(ShortestPath)
+    sp.Initialize(graph)
+    sp.GenerateSpt(graph)
+    sp.PrintSpt()
 }
 
 //Types for making the graph
@@ -102,12 +151,6 @@ func ParseFile(graph map[string]*GraphNode, fileName string){
             }
         } 
     }
-}
-
-func Dij(graph map[string]*GraphNode){
-    sp := new(ShortestPath)
-    sp.Initialize(graph)
-    sp.PrintSpt()
 }
 
 func PrintNodeConn(graph map[string]*GraphNode){
