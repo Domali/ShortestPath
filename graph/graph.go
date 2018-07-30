@@ -8,29 +8,45 @@ import (
 	s "strings"
 )
 
-//Types for dijkstra's shortest path algo
-type shortestPath struct {
-	sptSet map[string]int
-	nodes  map[string]*shortestPathNode
+type Graph struct {
+	graph   map[string]*node
+	nodeSpt map[string]*spTree
 }
 
-type shortestPathNode struct {
+type node struct {
+	id          string
+	connections []edge
+}
+
+type edge struct {
+	GraphNode *node
+	weight    int
+}
+
+type spTree struct {
+	sptSet map[string]int
+	nodes  map[string]*sptNode
+}
+
+type sptNode struct {
 	id     string
 	cost   int
-	parent *shortestPathNode
+	parent *sptNode
 }
 
-func (s *shortestPath) initialize(graph map[string]*GraphNode) {
-	s.sptSet = make(map[string]int)
-	s.nodes = make(map[string]*shortestPathNode)
-	for node := range graph {
-		if node != "start" && node != "end" {
-			s.nodes[node] = &shortestPathNode{id: node, cost: -1, parent: nil}
-		}
+func (g *Graph) initTree(head string) {
+	g.nodeSpt[head] = &spTree{}
+	g.nodeSpt[head].sptSet = make(map[string]int)
+	g.nodeSpt[head].nodes = make(map[string]*sptNode)
+	for node := range g.graph {
+		g.nodeSpt[head].nodes[node] = &sptNode{id: node, cost: -1, parent: nil}
 	}
 }
+func (g *Graph) PrintNodesSpt(node string) {
+	g.nodeSpt[node].printSpt()
+}
 
-func (s *shortestPath) printSpt() {
+func (s *spTree) printSpt() {
 	fmt.Println("Shortest Path Table")
 	fmt.Println("ID\tCost\tParent")
 	for _, node := range s.nodes {
@@ -44,29 +60,29 @@ func (s *shortestPath) printSpt() {
 	}
 }
 
-func (s *shortestPath) updateNodeSpt(graph map[string]*GraphNode, curNode string) {
-	s.sptSet[curNode] = -1
-	curWeight := s.nodes[curNode].cost
+func (g *Graph) updateNodeSpt(curNode, head string) {
+	g.nodeSpt[head].sptSet[curNode] = -1
+	curWeight := g.nodeSpt[head].nodes[curNode].cost
 	if curWeight == -1 {
 		curWeight = 0
 	}
-	for _, edge := range graph[curNode].connections {
+	for _, edge := range g.graph[curNode].connections {
 		edgeNode := edge.GraphNode
-		if _, ok := s.sptSet[edgeNode.id]; !ok {
+		if _, ok := g.nodeSpt[head].sptSet[edgeNode.id]; !ok {
 			pathCost := curWeight + edge.weight
-			if cost := s.nodes[edgeNode.id].cost; cost == -1 || cost > pathCost {
-				s.nodes[edgeNode.id].cost = pathCost
-				s.nodes[edgeNode.id].parent = s.nodes[curNode]
+			if cost := g.nodeSpt[head].nodes[edgeNode.id].cost; cost == -1 || cost > pathCost {
+				g.nodeSpt[head].nodes[edgeNode.id].cost = pathCost
+				g.nodeSpt[head].nodes[edgeNode.id].parent = g.nodeSpt[head].nodes[curNode]
 			}
 		}
 	}
 }
 
-func (s *shortestPath) getNextNode() string {
+func (g *Graph) getNextNode(head string) string {
 	var nextNode string
 	lowestCost := -1
-	for _, node := range s.nodes {
-		if _, ok := s.sptSet[node.id]; !ok {
+	for _, node := range g.nodeSpt[head].nodes {
+		if _, ok := g.nodeSpt[head].sptSet[node.id]; !ok {
 			if (lowestCost == -1 || node.cost < lowestCost) && node.cost != -1 {
 				lowestCost = node.cost
 				nextNode = node.id
@@ -76,63 +92,43 @@ func (s *shortestPath) getNextNode() string {
 	return nextNode
 }
 
-func (s *shortestPath) generateSpt(graph map[string]*GraphNode) {
-	nextNode := graph["start"].id
+func (g *Graph) generateSpt(n string) {
+	head := n
+	nextNode := n
 	for {
-		s.updateNodeSpt(graph, nextNode)
-		if nextNode = s.getNextNode(); nextNode == "" {
+		g.updateNodeSpt(nextNode, head)
+		if nextNode = g.getNextNode(head); nextNode == "" {
 			break
 		}
 	}
 }
 
-func Dij(graph map[string]*GraphNode) {
-	sp := new(shortestPath)
-	sp.initialize(graph)
-	sp.generateSpt(graph)
-	sp.printSpt()
-}
-
-//Types for making the graph
-type Graph struct {
-	g map[string]*GraphNode
-}
-
-type GraphNode struct {
-	id          string
-	connections []graphEdge
-}
-
-type graphEdge struct {
-	GraphNode *GraphNode
-	weight    int
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
+func (g *Graph) GenAllSpt() {
+	for node := range g.graph {
+		g.genNodeSpt(node)
 	}
 }
-
-func addOneWayEdge(graph map[string]*GraphNode, x, y string, w int) {
-	graph[x].connections = append(graph[x].connections, graphEdge{graph[y], w})
+func (g *Graph) genNodeSpt(node string) {
+	g.initTree(node)
+	g.generateSpt(node)
 }
 
-func addEdge(graph map[string]*GraphNode, x, y string, w int) {
-	addOneWayEdge(graph, x, y, w)
-	addOneWayEdge(graph, y, x, w)
+func (g *Graph) addOneWayEdge(x, y string, w int) {
+	g.graph[x].connections = append(g.graph[x].connections, edge{g.graph[y], w})
 }
 
-func setStartEnd(graph map[string]*GraphNode, s, e string) {
-	graph["start"] = graph[s]
-	graph["end"] = graph[e]
+func (g *Graph) addEdge(x, y string, w int) {
+	g.addOneWayEdge(x, y, w)
+	g.addOneWayEdge(y, x, w)
 }
 
-func addNode(graph map[string]*GraphNode, id string) {
-	graph[id] = &GraphNode{id: id}
+func (g *Graph) addNode(id string) {
+	g.graph[id] = &node{id: id}
 }
 
-func ParseFile(graph map[string]*GraphNode, fileName string) {
+func (g *Graph) InitGraph(fileName string) {
+	g.graph = make(map[string]*node)
+	g.nodeSpt = make(map[string]*spTree)
 	f, err := os.Open(fileName)
 	check(err)
 	defer f.Close()
@@ -143,30 +139,33 @@ func ParseFile(graph map[string]*GraphNode, fileName string) {
 			conn := s.Split(line, ",")
 			w, err := sc.Atoi(conn[2])
 			check(err)
-			addEdge(graph, conn[0], conn[1], w)
+			g.addEdge(conn[0], conn[1], w)
 		} else {
 			line = line[1 : len(line)-1]
 			p := s.Split(line, ",")
 			if i == 1 {
-				setStartEnd(graph, p[0], p[1])
 			} else if i == 0 {
 				for _, id := range p {
-					addNode(graph, id)
+					g.addNode(id)
 				}
 			}
 		}
 	}
 }
 
-func PrintNodeConn(graph map[string]*GraphNode) {
-	for node, data := range graph {
-		if node != "start" && node != "end" {
-			fmt.Println()
-			fmt.Println(node)
-			for _, thing := range data.connections {
-				f := thing.GraphNode
-				fmt.Printf("%v,%v,%v\n", node, f.id, thing.weight)
-			}
+func (g *Graph) PrintNodeConn() {
+	for node, data := range g.graph {
+		fmt.Println()
+		fmt.Println(node)
+		for _, thing := range data.connections {
+			f := thing.GraphNode
+			fmt.Printf("%v,%v,%v\n", node, f.id, thing.weight)
 		}
+	}
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
 	}
 }
